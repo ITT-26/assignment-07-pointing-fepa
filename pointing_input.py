@@ -26,9 +26,9 @@ OPTIONS = vision.HandLandmarkerOptions(
     base_options=python.BaseOptions(model_asset_path=MODEL_PATH),
     num_hands=NUM_HANDS,
     running_mode=vision.RunningMode.VIDEO,
-    min_hand_detection_confidence=0.35,
-    min_hand_presence_confidence=0.4,
-    min_tracking_confidence=0.3
+    min_hand_detection_confidence=0.4,
+    min_hand_presence_confidence=0.5,
+    min_tracking_confidence=0.4
 )
 OPTIONS_FACE = vision.FaceLandmarkerOptions(
     base_options=python.BaseOptions(model_asset_path=FACE_MODEL_PATH),
@@ -57,17 +57,13 @@ class FingerTracker():
         self.position = None
         self.isClicking = False
         self.screenSize = (SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.mode = mode
         self.isRunning = False
-        self.initializeTracking()
-        self.delay_queue = deque() 
-        self.mouse = pynput.mouse.Controller()
-        print(mode)
-
-    def initializeTracking(self):
         self.detector = vision.HandLandmarker.create_from_options(OPTIONS)
         self.detectorFace = vision.FaceLandmarker.create_from_options(OPTIONS_FACE)
+        self.mouse = pynput.mouse.Controller()
+        self.changeMode(mode) #starts Tracking if its a cammode
 
+    def initializeCam(self):
         self.cap = cv2.VideoCapture(VIDEO_ID)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
@@ -76,13 +72,15 @@ class FingerTracker():
 
     def changeMode(self, controlMode:ControlMode):
         self.mode = controlMode
-        if self.isRunning and (controlMode == ControlMode.MOUSE or controlMode == ControlMode.MOUSE_DELAY):
-            self.stopTracking()
-        elif not self.isRunning and (controlMode == ControlMode.PINCH or controlMode == ControlMode.WINK):
+        isCamMode = (controlMode == ControlMode.PINCH or controlMode == ControlMode.WINK)
+        if not self.isRunning and isCamMode:
             self.startTracking()
+        elif self.isRunning and not isCamMode:
+            self.stopTracking()
 
     def startTracking(self):
         self.isRunning = True
+        self.initializeCam()
         self.thread = threading.Thread(target=self.tracking_loop, daemon=True)
         self.thread.start()
     
@@ -94,6 +92,7 @@ class FingerTracker():
     def tracking_loop(self):
         lastFrameTime = time.time() #To improve performance
         clickTime = time.time()
+        timestamp_ms = int(time.time() * 1000)
         while self.isRunning:
             ret, frame = self.cap.read()
             if not ret or lastFrameTime > time.time() - 1/60:
@@ -101,7 +100,7 @@ class FingerTracker():
 
             frame = cv2.flip(frame, 1)
             mp_frame = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-            timestamp_ms = int(time.time() * 1000)
+            timestamp_ms += 33 #monotonically increase....
 
             hands_detection_result = self.detector.detect_for_video(mp_frame, timestamp_ms)
             face_detection_result = self.detectorFace.detect_for_video(mp_frame, timestamp_ms)
@@ -197,10 +196,11 @@ class FingerTracker():
             
             lastFrameTime = time.time()
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            key = cv2.waitKey(1) & 0xFF
+            if  key == ord('q'):
                 break
 
-            if cv2.waitKey(1) & 0xFF == ord('n') and self.standAlone:
+            if key == ord('n') and self.standAlone:
                 newMode = ControlMode.WINK if self.mode == ControlMode.PINCH else ControlMode.PINCH
                 self.changeMode(newMode)
 

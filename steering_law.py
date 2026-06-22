@@ -136,7 +136,6 @@ class SteeringExperiment:
         self.window.on_mouse_motion = self.on_mouse_motion
 
     def run(self):
-        self.tracker.startTracking()
         pyglet.clock.schedule_interval(self.update, 1/60)
         pyglet.app.run()
 
