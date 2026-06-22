@@ -1,30 +1,21 @@
 from pointing_input import FingerTracker, ControlMode
 import json
-import tkinter as tk
 import os
 import pyglet
 import argparse
 import time
 from dataclasses import dataclass
 from collections import deque
-import ctypes
+from random import randint
 
 #Notes:
 # - Since I decided to implement the tracker as absolute Pointing device one could just "jump" through the tunnel
 # - So there is a check at the start and end (+50p) to start the test (maybe checkpoints inbetween wouldn't be bad, like in racing games)
 
-root = tk.Tk()
-root.withdraw()
-WINDOW_WIDTH = 1920 #int(root.winfo_screenwidth())
-WINDOW_HEIGHT = 1080#int(root.winfo_screenheight())
-
-ctypes.windll.shcore.SetProcessDpiAwareness(1)
-SCREEN_WIDTH = ctypes.windll.user32.GetSystemMetrics(0)
-SCREEN_HEIGHT = ctypes.windll.user32.GetSystemMetrics(1)
-
-MODE = ControlMode.WINK
-SAVE_PATH = "data"
-DELAY = 0
+WINDOW_WIDTH = 1920
+toSubtract = (pyglet.display.get_display().get_default_screen().height // 1080) * 30 #-30 since windowbar counts extra (i think its 30 for 1080p? on 4k monitors its 60?)
+WINDOW_HEIGHT = 1080-toSubtract 
+SAVE_PATH = "data/steering"
 
 @dataclass
 class SteeringConfig:
@@ -34,20 +25,32 @@ class SteeringConfig:
     numberOfTrials: int
     delay: int
 
-
 class CsvLogger:
     def __init__(self, config: SteeringConfig):
         self.config = config
         self.log_csv = []
-        self.csvHeader = "iteration;pid;delay;tunnel_w;tunnel_h;x;y;hit;timestamp\n"
+        self.csvHeader = "input_mode;iteration;pid;delay;tunnel_w;tunnel_h;x;y;hit;timestamp\n"
 
-    def addToCsv(self, currentIteration, x, y, hit):
-        csvString = f"{currentIteration};{self.config.playerId};{self.config.delay};{self.config.tunnelWidth};{self.config.tunnelHeight};{x};{y};{hit};{int(time.time()*1000)}\n"
+    def addToCsv(self, currentIteration, x, y, hit, controlMode:ControlMode):
+        csvString = (
+            f"{controlMode};"
+            f"{currentIteration};"
+            f"{self.config.playerId};"
+            f"{self.config.delay};"
+            f"{self.config.tunnelWidth};"
+            f"{self.config.tunnelHeight};"
+            f"{x};"
+            f"{y};"
+            f"{hit};"
+            f"{int(time.time() * 1000)}\n"
+        )        
         self.log_csv.append(csvString)
 
-    def saveCSV(self):
-        print("SAving")
-        csvName = f"{SAVE_PATH}/steering_{self.config.tunnelWidth}_{self.config.tunnelHeight}_{self.config.playerId}.csv"
+    def saveCSV(self, controlMode:ControlMode):
+        saveFolder = os.path.join(SAVE_PATH, controlMode.name)
+        if not os.path.exists(saveFolder):
+            os.makedirs(saveFolder)
+        csvName = f"{saveFolder}/steering_{controlMode.name}_{self.config.tunnelWidth}_{self.config.tunnelHeight}_{self.config.playerId}.csv"
         with open(csvName, "w") as file:
             file.write(self.csvHeader + "".join(self.log_csv))
 
@@ -55,34 +58,62 @@ class CsvLogger:
 
 class SteeringExperiment:
     def __init__(self, config: SteeringConfig):
-        self.config = config
+        self.curstomParameters = False
+        self.customDelay = False
+
+        if config.delay is not None and config.delay != 0:
+            self.customDelay = True
+        else:
+            config.delay = 0
+
+        self.config:SteeringConfig = config
+        if config.tunnelWidth is None or config.tunnelHeight is None:
+            self.loadRounds()
+        else:
+            self.curstomParameters = True
+
         self.window = pyglet.window.Window(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.window.set_location(0, 60) # 60 since windowbar isn't included
         self.window.set_mouse_visible(False)
-        self.loadRounds()
+
         self.infoLabel = pyglet.text.Label(
             text="Press S if you are ready",
             x=20,
-            y=WINDOW_HEIGHT-20,
+            y=20,
             width= (WINDOW_WIDTH - self.config.tunnelWidth)//2,
-            font_size=30,
+            font_size=22,
             color=(255, 255, 255, 255),
             multiline=True,
+            anchor_x="left",
+            anchor_y="bottom"
+        )
+
+        self.modeLabel = pyglet.text.Label(
+            text=f"Input: {ControlMode(0).name}\nPress N to skip ahead",
+            x=20,
+            y=WINDOW_HEIGHT-20,
+            font_size=22,
+            color=(255, 255, 255, 255),
+            multiline=True,
+            width=500,
             anchor_x="left",
             anchor_y="top"
         )
 
-        self.tracker = FingerTracker((WINDOW_WIDTH,WINDOW_HEIGHT), mode=MODE)
+        self.controlMode = ControlMode(0)
+        self.tracker = FingerTracker(mode=self.controlMode)
         self.csvLogger = CsvLogger(config)
         self.trackCircle = pyglet.shapes.Circle(WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 10, color=(0,255,0))
         self.rectangleBatch = pyglet.graphics.Batch()
-        self.rectangleTop, self.rectAngleBottom = self.createTunnel()
+        self.createTunnel()
 
         self.roundRunning = False
         self.allowStart = False
         self.currentIteration = 1
-        self.currentTrial = 0
-        self.subTrial = 0
+        self.currentDistanceIndex = 0
+        self.currentTunnelHeightIndex = 0
         self.startTime = None
+       
 
         self.moveDeque = deque()
         self.initWindowFunctions()
@@ -143,7 +174,6 @@ class SteeringExperiment:
         rectTop = self.rectangleTop
         rectBottom = self.rectAngleBottom
         
-
         top_y = rectTop.y
         bottom_y = rectBottom.y + rectBottom.height
 
@@ -154,6 +184,7 @@ class SteeringExperiment:
 
         if (int(x) > int(rectTop.x) and int(x) < int(rectTop.x+50)) and in_y_tunnel and not self.roundRunning and self.allowStart:
             print("EnterTunnel")
+            self.infoLabel.text = "Trial running...\nCross the finish-line"
             self.roundRunning = True
             self.startTime = time.time()
 
@@ -161,7 +192,7 @@ class SteeringExperiment:
             print("LeftTunnel")
             self.roundRunning = False
             took = time.time()- self.startTime
-            self.newRound(took)
+            self.newRound(tooktime=f"{took:.01f}ms")
 
         if self.roundRunning :
             hit = 0
@@ -171,7 +202,7 @@ class SteeringExperiment:
             if hitBottom:
                 self.rectAngleBottom.color = (255,100,100)
                 hit = 1
-            self.csvLogger.addToCsv(self.currentIteration, x,y,hit)                 
+            self.csvLogger.addToCsv(self.currentIteration, x,y,hit, self.controlMode)                 
 
     def on_key_press(self, symbol, modifiers):
         key = pyglet.window.key
@@ -179,14 +210,19 @@ class SteeringExperiment:
             pyglet.app.exit()
             os._exit(0)
 
-        newX = (WINDOW_WIDTH - self.tunnelDistances[self.currentTrial])//2
+        newX = (WINDOW_WIDTH - self.tunnelDistances[self.currentDistanceIndex])//2
+        print(newX, self.trackCircle.x)
         if symbol == key.S and not self.allowStart:
             if self.trackCircle.x > newX:
                 self.infoLabel.text = "Please Move you mouse\nto the left side!"
             else:
-                self.rectangleTop, self.rectAngleBottom = self.createTunnel()
+                self.createTunnel()
                 self.allowStart = True
                 self.infoLabel.text = "To start\njust enter the tunnel"
+        
+        if symbol == key.N:
+            self.newRound(skipRound=True)
+            self.allowStart = False
     
     def on_close(self):
         os._exit(0)
@@ -205,49 +241,93 @@ class SteeringExperiment:
         
         startYBottom = 0
         endYBottom = middleY - height//2
-        
-        return pyglet.shapes.Rectangle(startX, startYTop, (endX - startX), (endYTop - startYTop), (255,255,255), batch=self.rectangleBatch), pyglet.shapes.Rectangle(startX, startYBottom, (endX - startX), (endYBottom - startYBottom), (255,255,255), batch=self.rectangleBatch)
-        
+        self.rectangleTop = pyglet.shapes.Rectangle(startX, startYTop, (endX - startX), (endYTop - startYTop), (255,255,255), batch=self.rectangleBatch)
+        self.rectAngleBottom = pyglet.shapes.Rectangle(startX, startYBottom, (endX - startX), (endYBottom - startYBottom), (255,255,255), batch=self.rectangleBatch)
     
-    def newRound(self, took):
-        self.allowStart = False
+    def newRound(self, tooktime="-- ms", skipRound=False):
         self.roundRunning = False
-        self.infoLabel.text = f"Took: {took:.2f}s\nWell Done!\nClick S once ready"
-
-        self.currentIteration +=1
-        if self.currentIteration >= self.config.numberOfTrials + 1:
-            self.infoLabel.text = f"Finished All Iterations\n{self.currentIteration-1} of {self.config.numberOfTrials}"
-            self.csvLogger.saveCSV()
-
-            self.currentIteration = 1
-            self.currentTrial = (self.currentTrial + 1) % len(self.tunnelDistances)
-            if self.currentTrial == 0:
-                self.subTrial += 1
-            if self.subTrial >= len(self.tunnelHeights):
-                self.infoLabel.text = f"FINISHED EVERYTHING"
-                self.subTrial = 0
+        self.allowStart = False
+        if skipRound:
+            self.infoLabel.text = f"Click S once ready"
+        else:
+            self.infoLabel.text = f"Well Done!\n{self.currentIteration} of {self.config.numberOfTrials}\n{tooktime}\nPress S once ready"
+        
+        self.currentIteration += 1
+        allIterationsDone = self.currentIteration >= self.config.numberOfTrials + 1
+        if allIterationsDone or skipRound:
+            #If skipped clear log else save
+            if skipRound:
+                self.csvLogger.log_csv.clear()
             else:
-                self.config.tunnelWidth = self.tunnelDistances[self.currentTrial]
-                self.config.tunnelHeight = self.tunnelHeights[self.subTrial]
-                self.csvLogger.config = self.config
-                
+                self.infoLabel.text = f"Finished All Iterations {self.currentIteration-1} of {self.config.numberOfTrials}\n{tooktime}\nPress S once ready"
+                self.csvLogger.saveCSV(self.controlMode)
+            
+            #reset current iteration
+            self.currentIteration = 1
+
+            #if customstart arguments there is only one trial/height so go straight to next device
+            if self.curstomParameters:
+                self.nextDevice()
+            else:
+                self.currentDistanceIndex = (self.currentDistanceIndex + 1) % len(self.tunnelDistances)
+                if self.currentDistanceIndex == 0:
+                    self.currentTunnelHeightIndex += 1
+
+                if self.currentTunnelHeightIndex >= len(self.tunnelHeights):
+                    self.infoLabel.text = f"FINISHED EVERYTHING"
+                    self.nextDevice()
+
+                self.config.tunnelWidth = self.tunnelDistances[self.currentDistanceIndex]
+                self.config.tunnelHeight = self.tunnelHeights[self.currentTunnelHeightIndex]
+                self.csvLogger.config = self.config  
+        self.setInfoString()
+    
+    def nextDevice(self):
+        #reset Variables
+        self.roundRunning = False
+        self.currentIteration = 1
+        self.currentDistanceIndex = 0
+        self.currentTunnelHeightIndex = 0
+        self.fittsProgress = 0
+        
+        #set new inputdevice
+        self.controlMode = ControlMode((self.controlMode.value+1) % len(ControlMode))
+        self.tracker.changeMode(self.controlMode)
+        
+        #really hate this check, but since both custom and the ready made test-runs should be possible this is a (bad) solution
+        if not self.customDelay:
+            #could be more elegant but this way, whenever one wants to add inputdevice with delay it can just be added to the name
+            if "delay" in self.controlMode.name.lower():
+                self.config.delay = 150
+            else:
+                self.config.delay = 0
+
+        #if its back at 0 all input-devices are through
+        if self.controlMode.value == 0:
+            print("Done every combination of every controlmode")
+
+    def setInfoString(self):
+        infoString = f"Distance: {self.config.tunnelWidth} | Size: {self.config.tunnelHeight}"
+        self.modeLabel.text = f"Input: {self.controlMode.name}\n{infoString}\nPress N to skip ahead"
+
     def on_draw(self):
         self.window.clear()
         self.rectangleBatch.draw()
         self.trackCircle.draw()
         self.infoLabel.draw()
+        self.modeLabel.draw()
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--userId", type=int, default=5)
-    parser.add_argument("--tunnelWidth", type=int, default=800)
-    parser.add_argument("--tunnelHeight", type=int, default=80)
+    parser.add_argument("--pId", type=int, default=randint(0,9999))
+    parser.add_argument("--tunnelWidth", type=int, default=None)
+    parser.add_argument("--tunnelHeight", type=int, default=None)
     parser.add_argument("--numTrials", type=int, default=3)
-    parser.add_argument("--delay", type=int, default=0)
+    parser.add_argument("--delay", type=int, default=None)
     args = parser.parse_args()
 
     config = SteeringConfig(
-        playerId = args.userId,
+        playerId = args.pId,
         tunnelWidth= args.tunnelWidth,
         tunnelHeight = args.tunnelHeight,
         numberOfTrials =  args.numTrials,
