@@ -6,7 +6,7 @@ import pyglet
 import argparse
 import time
 from dataclasses import dataclass
-from random import randint
+from random import randint, shuffle
 from collections import deque
 
 #Notes:
@@ -76,7 +76,7 @@ class FittsExpermiment:
             self.curstomParameters = True
      
         self.window = pyglet.window.Window(WINDOW_WIDTH, WINDOW_HEIGHT)
-        self.window.set_location(0, 60) # 60 since the menubar isn't included
+        self.window.set_location(0, toSubtract) # toSubtract since the menubar isn't included
         self.window.set_mouse_visible(False)        
 
         self.controlMode = ControlMode(0)
@@ -135,6 +135,9 @@ class FittsExpermiment:
         self.targetDistances = roundConfig["targetDistances"]
         self.targetSizes = roundConfig["targetSizes"]
 
+        shuffle(self.targetDistances)
+        shuffle(self.targetSizes)
+
         self.config.circleDistance = self.targetDistances[0]
         self.config.circleSize = self.targetSizes[0] 
 
@@ -161,7 +164,6 @@ class FittsExpermiment:
         self.window.on_mouse_drag = self.on_mouse_drag
 
     def run(self):
-        self.tracker.changeMode(self.controlMode)
         pyglet.clock.schedule_interval(self.update, 1/60)
         pyglet.app.run()
 
@@ -313,7 +315,7 @@ class FittsExpermiment:
         
         #set new inputdevice
         self.controlMode = ControlMode((self.controlMode.value+1) % len(ControlMode))
-        self.tracker.changeMode(self.controlMode)
+        self.tracker.setMode(self.controlMode)
 
         #really hate this check, but since both custom and the ready made test-runs should be possible this is a (bad) solution
         if not self.customDelay:

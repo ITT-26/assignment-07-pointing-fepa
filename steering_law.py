@@ -6,7 +6,7 @@ import argparse
 import time
 from dataclasses import dataclass
 from collections import deque
-from random import randint
+from random import randint, shuffle
 
 #Notes:
 # - Since I decided to implement the tracker as absolute Pointing device one could just "jump" through the tunnel
@@ -33,7 +33,7 @@ class CsvLogger:
 
     def addToCsv(self, currentIteration, x, y, hit, controlMode:ControlMode):
         csvString = (
-            f"{controlMode};"
+            f"{controlMode.name};"
             f"{currentIteration};"
             f"{self.config.playerId};"
             f"{self.config.delay};"
@@ -73,7 +73,7 @@ class SteeringExperiment:
             self.curstomParameters = True
 
         self.window = pyglet.window.Window(WINDOW_WIDTH, WINDOW_HEIGHT)
-        self.window.set_location(0, 60) # 60 since windowbar isn't included
+        self.window.set_location(0, toSubtract) # 60 since windowbar isn't included
         self.window.set_mouse_visible(False)
 
         self.infoLabel = pyglet.text.Label(
@@ -125,6 +125,9 @@ class SteeringExperiment:
 
         self.tunnelDistances = roundConfig["tunnelDistance"]
         self.tunnelHeights= roundConfig["tunnelHeight"]
+
+        shuffle(self.tunnelDistances)
+        shuffle(self.tunnelHeights)
 
         self.config.tunnelHeight = self.tunnelHeights[0]
         self.config.tunnelWidth = self.tunnelDistances[0]
@@ -181,13 +184,14 @@ class SteeringExperiment:
         hitBottom = hitX and y-self.trackCircle.radius < bottom_y
         in_y_tunnel = bottom_y < y < top_y
 
-        if (int(x) > int(rectTop.x) and int(x) < int(rectTop.x+50)) and in_y_tunnel and not self.roundRunning and self.allowStart:
+        #+100 since due to nature of the fingertracking since it can "jump"
+        if (int(x) > int(rectTop.x) and int(x) < int(rectTop.x+100)) and in_y_tunnel and not self.roundRunning and self.allowStart:
             print("EnterTunnel")
             self.infoLabel.text = "Trial running...\nCross the finish-line"
             self.roundRunning = True
             self.startTime = time.time()
 
-        if (int(x) >= int(rectTop.x+rectTop.width) and int(x) <= int(rectTop.x+rectTop.width + 50)) and in_y_tunnel and self.roundRunning and self.allowStart:
+        if (int(x) >= int(rectTop.x+rectTop.width) and int(x) <= int(rectTop.x+rectTop.width + 100)) and in_y_tunnel and self.roundRunning and self.allowStart:
             print("LeftTunnel")
             self.roundRunning = False
             took = time.time()- self.startTime
@@ -210,9 +214,10 @@ class SteeringExperiment:
             os._exit(0)
 
         newX = (WINDOW_WIDTH - self.tunnelDistances[self.currentDistanceIndex])//2
+        tooFarRight = self.trackCircle.x > newX
         print(newX, self.trackCircle.x)
         if symbol == key.S and not self.allowStart:
-            if self.trackCircle.x > newX:
+            if tooFarRight:
                 self.infoLabel.text = "Please Move you mouse\nto the left side!"
             else:
                 self.createTunnel()
@@ -220,8 +225,12 @@ class SteeringExperiment:
                 self.infoLabel.text = "To start\njust enter the tunnel"
         
         if symbol == key.N:
-            self.newRound(skipRound=True)
-            self.allowStart = False
+            if tooFarRight:
+                self.infoLabel.text = "Please Move you mouse\nto the left side!"
+            else:
+                self.newRound(skipRound=True)
+                self.createTunnel()
+                self.allowStart = False
     
     def on_close(self):
         os._exit(0)
@@ -291,7 +300,7 @@ class SteeringExperiment:
         
         #set new inputdevice
         self.controlMode = ControlMode((self.controlMode.value+1) % len(ControlMode))
-        self.tracker.changeMode(self.controlMode)
+        self.tracker.setMode(self.controlMode)
         
         #really hate this check, but since both custom and the ready made test-runs should be possible this is a (bad) solution
         if not self.customDelay:

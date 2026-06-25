@@ -61,7 +61,7 @@ class FingerTracker():
         self.detector = vision.HandLandmarker.create_from_options(OPTIONS)
         self.detectorFace = vision.FaceLandmarker.create_from_options(OPTIONS_FACE)
         self.mouse = pynput.mouse.Controller()
-        self.changeMode(mode) #starts Tracking if its a cammode
+        self.setMode(mode) #starts Tracking if its a cammode
 
     def initializeCam(self):
         self.cap = cv2.VideoCapture(VIDEO_ID)
@@ -70,7 +70,7 @@ class FingerTracker():
         self.camWidth = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.camHeight = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    def changeMode(self, controlMode:ControlMode):
+    def setMode(self, controlMode:ControlMode):
         self.mode = controlMode
         isCamMode = (controlMode == ControlMode.PINCH or controlMode == ControlMode.WINK)
         if not self.isRunning and isCamMode:
@@ -150,7 +150,7 @@ class FingerTracker():
                         if (blinkLeft > 0.60 and blinkRight < 0.4) or (blinkRight > 0.60 and blinkLeft < 0.4):
                             if clickTime is None:
                                 clickTime = time.time()
-                            elif time.time() - clickTime >= 0.15: #Also to reduce accidents, one blink of an eye is approximatly 100-150ms
+                            elif time.time() - clickTime >= 0.075: #Also to reduce accidents, one blink of an eye is approximatly 100-150ms
                                 if not self.isClicking:
                                     self.isClicking = True
                                     self.mouse.click(pynput.mouse.Button.left, 1)
@@ -202,7 +202,7 @@ class FingerTracker():
 
             if key == ord('n') and self.standAlone:
                 newMode = ControlMode.WINK if self.mode == ControlMode.PINCH else ControlMode.PINCH
-                self.changeMode(newMode)
+                self.setMode(newMode)
 
         self.cap.release()
         cv2.destroyAllWindows()
