@@ -1,6 +1,7 @@
-from pointing_input import FingerTracker, ControlMode
-import json
+import sys
 import os
+
+import json
 import pyglet
 import argparse
 import time
@@ -8,6 +9,11 @@ from dataclasses import dataclass
 from collections import deque
 from random import randint, shuffle
 
+curDir = os.path.dirname(os.path.abspath(__file__))
+parentFolder = os.path.dirname(curDir)
+if parentFolder not in sys.path:
+    sys.path.append(parentFolder)
+from Task_1.pointing_input import FingerTracker, ControlMode
 #Notes:
 # - Since I decided to implement the tracker as absolute Pointing device one could just "jump" through the tunnel
 # - So there is a check at the start and end (+50p) to start the test (maybe checkpoints inbetween wouldn't be bad, like in racing games)
@@ -15,7 +21,9 @@ from random import randint, shuffle
 WINDOW_WIDTH = 1920
 toSubtract = (pyglet.display.get_display().get_default_screen().height // 1080) * 30 #-30 since windowbar counts extra (i think its 30 for 1080p? on 4k monitors its 60?)
 WINDOW_HEIGHT = 1080-toSubtract 
-SAVE_PATH = "data/steering"
+SAVE_PATH = f"{parentFolder}/Task_5/data/steering"
+
+print(SAVE_PATH)
 
 @dataclass
 class SteeringConfig:
@@ -120,7 +128,7 @@ class SteeringExperiment:
         self.run()
 
     def loadRounds(self):
-        with open("steering.config", "r", encoding="utf-8") as f:
+        with open(f"{curDir}/steering.config", "r", encoding="utf-8") as f:
             roundConfig = json.load(f)
 
         self.tunnelDistances = roundConfig["tunnelDistance"]
@@ -333,6 +341,8 @@ def main():
     parser.add_argument("--numTrials", type=int, default=3)
     parser.add_argument("--delay", type=int, default=None)
     args = parser.parse_args()
+
+    print(args.pId)
 
     config = SteeringConfig(
         playerId = args.pId,

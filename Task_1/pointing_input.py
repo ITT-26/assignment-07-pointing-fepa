@@ -11,11 +11,13 @@ import threading
 import pynput
 import ctypes
 from enum import IntEnum
+import os
 
 VIDEO_ID = 0
 NUM_HANDS = 1
-MODEL_PATH = './hand_landmarker.task'
-FACE_MODEL_PATH = './face_landmarker.task'
+script_dir = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = f'{script_dir}/hand_landmarker.task'
+FACE_MODEL_PATH = f'{script_dir}/face_landmarker.task'
 
 #Bounds for cam handtracking => So the inner 3/4 of the frame gets tanslated to 100% of the screen since handdetection doesnt work reliably at border of frame (this way whole hand is always in frame)
 LOWER_BOUND = 0.25
@@ -95,6 +97,7 @@ class FingerTracker():
         timestamp_ms = int(time.time() * 1000)
         while self.isRunning:
             ret, frame = self.cap.read()
+            print(ret)
             if not ret or lastFrameTime > time.time() - 1/60:
                 continue
 
@@ -142,6 +145,7 @@ class FingerTracker():
                     cv_track_pos = (cvX, cvY)
 
                     #Click by winking
+                    #Can be discriminating and work depending on different eyes, should be refined if used. I didn't want to change anything while trials were already done
                     if face_detection_result.face_blendshapes:
                         blendShapes = face_detection_result.face_blendshapes[0]
                         blinkLeft = next(bs.score for bs in blendShapes if bs.category_name == "eyeBlinkLeft")

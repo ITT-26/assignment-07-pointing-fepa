@@ -1,7 +1,7 @@
-from pointing_input import FingerTracker, ControlMode
 import json
 import math
 import os
+import sys
 import pyglet
 import argparse
 import time
@@ -9,13 +9,19 @@ from dataclasses import dataclass
 from random import randint, shuffle
 from collections import deque
 
+curDir = os.path.dirname(os.path.abspath(__file__))
+parentFolder = os.path.dirname(curDir)
+if parentFolder not in sys.path:
+    sys.path.append(parentFolder)
+from Task_1.pointing_input import FingerTracker, ControlMode
+
 #Notes:
 # - Last distance of fitts experiment is intentionally very far at border, so the gestureinputs get tested at their limit
 
 WINDOW_WIDTH = 1920 
 toSubtract = (pyglet.display.get_display().get_default_screen().height // 1080) * 30 #-30 since windowbar counts extra (i think its 30 for 1080p? on 4k monitors its 60?)
 WINDOW_HEIGHT = 1080-toSubtract 
-SAVE_PATH = "data/fitts"
+SAVE_PATH = f"{parentFolder}/Task_5/data/fitts"
 
 @dataclass
 class FittsConfig:
@@ -129,7 +135,7 @@ class FittsExpermiment:
         self.setInfoString()
 
     def loadRounds(self):
-        with open("fitts.config", "r", encoding="utf-8") as f:
+        with open(f"{curDir}/fitts.config", "r", encoding="utf-8") as f:
             roundConfig = json.load(f)
 
         self.targetDistances = roundConfig["targetDistances"]
@@ -350,6 +356,8 @@ def main():
     parser.add_argument("--numCircles", type=int, default=10)
     parser.add_argument("--delay", type=int, default=None)
     args = parser.parse_args()
+    
+    print(args.pId)
 
     config = FittsConfig(
         playerId = args.pId,

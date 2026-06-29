@@ -2,14 +2,15 @@
 
 
 ## Requirements
-- Python **3.9 - 3.12** (tensorflow/keras don't work on higher versions)
+- Was tested with **Python 3.12**,  
+but should work with any version that supports mediapipe and the other dependencies
 
 ## Initializing and starting Virtual Enviroment
 
 ### For Windows
-Open The Root-Directory (Assignment-05-...) in a Terminal and create + activate the virtual enviroment with (**make sure you use a supported version**):
+Open The Root-Directory (Assignment-07-...) in a Terminal and create + activate the virtual enviroment with (**make sure you use a supported version**):
 ````
-py -3.12 -m venv venv
+py -m venv venv
 venv\Scripts\activate
 ````
 (venv) should now be displayed before your new CommandLine in the Terminal
@@ -40,7 +41,7 @@ pip install -r requirements.txt
 # 01-Pose-Based Pointing Technique
 1. You can start the file on it's own to see your camera feed with the pointers marked
     ````
-    py -m pointing_input.py --pId 1
+    py -m ./Task_1/pointing_input.py
     ````
 2. There are 2 different inputtypes
     - Your pointer is the middle-point of IndexFinger and Thumb  
@@ -48,12 +49,13 @@ pip install -r requirements.txt
     - Your pointer is the IndexFingerTip  
       You click by winking with one eye
 3. You can switch InputMode by pressing **_N_**
-4. For the Following Tests the Class gets loaded automatically, no need to start it twice
+4. You can quit by pressing **_Q_** 
+5. For the Following Tests the Class gets loaded automatically, no need to start it twice
 
 # 02-Fitts-Law
 1. Start with
     ````
-    py -m fitts_law.py
+    py -m ./Task_2/fitts_law.py
     ````
     To go through a normal testround with 9 Combinations of distance and Size (pId is random between 0-9999)  
     **So make sure to not restart/set the correct pId if you do**
@@ -86,7 +88,7 @@ pip install -r requirements.txt
 # 03-Steering-Law
 1. Start with
     ````
-    py -m steering_law.py
+    py -m ./Task_3/steering_law.py
     ````
     To go through a normal testround with 9 Combinations of distance and height
 
@@ -117,3 +119,4 @@ pip install -r requirements.txt
 4. After all Iterations of a combination are done a csv is saved automatically
 
 # 05-Analysis of Results
+Notebook and data inside Task_5-Folder
