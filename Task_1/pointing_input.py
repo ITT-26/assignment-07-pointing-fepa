@@ -97,13 +97,12 @@ class FingerTracker():
         timestamp_ms = int(time.time() * 1000)
         while self.isRunning:
             ret, frame = self.cap.read()
-            print(ret)
             if not ret or lastFrameTime > time.time() - 1/60:
                 continue
 
             frame = cv2.flip(frame, 1)
             mp_frame = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-            timestamp_ms += 33 #monotonically increase....
+            timestamp_ms += 16 #monotonically increase....
 
             hands_detection_result = self.detector.detect_for_video(mp_frame, timestamp_ms)
             face_detection_result = self.detectorFace.detect_for_video(mp_frame, timestamp_ms)
@@ -217,7 +216,6 @@ if __name__ == "__main__":
     v_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
     
     tracker = FingerTracker(mode=MODE, showDebug=True, standalone=True)
-    tracker.startTracking()
     
     try:
         while True:
