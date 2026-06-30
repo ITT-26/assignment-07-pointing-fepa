@@ -119,4 +119,5 @@ pip install -r requirements.txt
 4. After all Iterations of a combination are done a csv is saved automatically
 
 # 05-Analysis of Results
-Notebook and data inside Task_5-Folder
+- [Data](./Task_5/data)  
+- [Notebook](./Task_5/analysis.ipynb)
