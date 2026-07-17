@@ -1,4 +1,4 @@
-# fepa (17.5)
+# fepa (15.5)
 
 No commits of Patrick. Thus, I can only grade Ferdi. ~~Feel free to contact me, if you disagree.~~
 However, bad communication, this is not appropriate for team assignments (-2)
