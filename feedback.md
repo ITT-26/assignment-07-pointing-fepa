@@ -1,7 +1,7 @@
 # fepa (17.5)
 
-No commits of Patrick. Thus, I can only grade Ferdi. Feel free to contact me, if you disagree.
-
+No commits of Patrick. Thus, I can only grade Ferdi. ~~Feel free to contact me, if you disagree.~~
+However, bad communication, this is not appropriate for team assignments (-2)
 
 ## Pose-Based Pointing Technique (4.5/5)
 
@@ -24,3 +24,7 @@ No commits of Patrick. Thus, I can only grade Ferdi. Feel free to contact me, if
 
 
 ## Evaluating Input techniques (7/8)
+
+---
+
+Patrick is allowed to re-submit task 1-4.
